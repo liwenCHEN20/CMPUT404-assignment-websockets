@@ -258,6 +258,7 @@ mouse.mousedraggers.push(function(x,y,clicked,e) {
 function update() {
     drawFrame();
 }
+//https://github.com/abramhindle/WebSocketsExamples/blob/master/static/broadcast.html 2016/03/13
 function wsSetup() {
     var url = "ws://"+host+"/subscribe";   
     socket = new WebSocket(url);
