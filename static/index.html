@@ -20,7 +20,21 @@
         See the License for the specific language governing permissions and
         limitations under the License.
     "/>
-    <script src="json2.js"></script>
+    <script src="static/json2.js"></script>
+    <style>
+.button {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+}
+</style>
   </head> 
   <body bgcolor="white" height="100%" width="100%"> 
     <div id="debug"></div>
@@ -36,18 +50,41 @@ var H = canvas.height = window.innerHeight-50;
 var wscounter = 0;
 var socket;
 
+
+function getRandomColor() {
+    var letters = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'];
+    var color = '#';
+    for (var i = 0; i < 6; i++ ) {
+        color += letters[Math.round(Math.random() * 15)];
+    }
+    return color;
+}
+
+var radius_index=10;
+
+
+
+function randomNumberRange()
+{
+    if (radius_index<59){
+    radius_index++;
+    }else{
+    radius_index=10;
+    }
+	radius=radius_index;
+    console.log(radius_index,radius);
+    return radius;
+}
 function debug(str) {
     var debugDiv = document.getElementById('debug');
     debugDiv.innerHTML = "" + str;
 }
 debug("Test");
-
 world = {};
-
 //XXX: TODO Make this prettier!
 function drawCircle(context,entity) {
     with(context) {
-        beginPath();                
+        beginPath();              
         lineWidth = 3;
         var x = entity["x"];
         var y = entity["y"];
@@ -58,7 +95,6 @@ function drawCircle(context,entity) {
         stroke();                                
     }
 }
-
 function prepEntity(entity) {
     if (!entity["colour"]) {
         entity["colour"] = "#FF0000";
@@ -68,31 +104,26 @@ function prepEntity(entity) {
     }
     return entity;
 }
-
 function clearFrame() {
     with(context) {
 	moveTo(0,0);
 	fillStyle = "#000";
 	fillRect(0,0,W,H);
     }
-
 }
-
 // This actually draws the frame
 function renderFrame() {
     clearFrame();
     for (var key in world) {
         var entity = world[key];
-        drawCircle(context,prepEntity(entity));
+        drawCircle(context, prepEntity(entity));
     }
 }
-
 var drawNext = true;
 // Signals that there's something to be drawn
 function drawNextFrame() {
     drawNext = true;
 }
-
 // This optionally draws the frame, call this if you're not sure if you should update
 // the canvas
 function drawFrame() {
@@ -101,10 +132,8 @@ function drawFrame() {
         drawNext = false;
     }
 }
-
 // This is unpleasent, canvas clicks are not handled well
 // So use this code, it works well on multitouch devices as well.
-
 function getPosition(e) {
 	if ( e.targetTouches && e.targetTouches.length > 0) {
 		var touch = e.targetTouches[0];
@@ -120,18 +149,19 @@ function getPosition(e) {
 		return [x,y];
 	}
 }
-
 function addEntity(entity, data) {
     world[entity] = data;
     drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just modified!
+    d = {};
+    d[entity] = data;
+    socket.send(JSON.stringify(d));
 }
 var counter = 0;
 function addEntityWithoutName(data) {
     var name = "X"+(counter++)%100;
     addEntity(name,data);
 }
-
 // canvas + mouse/touch is complicated 
 // I give you this because well the mouse/touch stuff is a total
 // pain to get right. This has some out of context bug too.
@@ -227,33 +257,35 @@ mouse = (function() {
     self.mouseinstall();
     return self;
 })();
-
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    addEntityWithoutName({'x':x,'y':y,'colour': getRandomColor()});
 });
-
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    addEntityWithoutName({'x':x,'y':y,'colour':getRandomColor()});
 });
-
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
-                          'radius':10});
+    addEntityWithoutName({'x':x,'y':y,'colour': getRandomColor(),
+                          'radius':randomNumberRange()});
 });
-
-
 function update() {
     drawFrame();
 }
-
-
 function wsSetup() {
     var url = "ws://"+host+"/subscribe";   
     socket = new WebSocket(url);
     socket.onopen = function() {
         //XXX: TODO What are you going to do here?
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "http://" + host + "/world", false);
+        xhr.onreadystatechange = function() {
+            worldReturn = JSON.parse(xhr.responseText);
+            for (k in worldReturn){
+                world[k] = worldReturn[k];
+            }
+        }
+        xhr.send(null); 
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
@@ -261,22 +293,28 @@ function wsSetup() {
     socket.onmessage = function(msg) {  
         try {
             debug("WebSocket Recv:" + msg.data);
-            //XXX: TODO What are you going to do here?            
+            //XXX: TODO What are you going to do here? 
+            message = JSON.parse(msg.data);
+            for (k in message){
+                if (k == "clear") {
+                    world = {};
+                    break;
+                }
+                world[k] = message[k]; 
+            } 
+           //console.log(message);
+            drawNextFrame();     
         } catch (e) {
             alert("socket on message: " + e);
+            //console.log(e);
         }
     }; 
 }
-
 wsSetup();
-
-
-
 
 // 30 frames per second
 setInterval( update, 1000/30.0);
-
-
     </script>
+
 </body>
 </html>
